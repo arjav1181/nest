@@ -60,6 +60,9 @@ class Runtime:
         self.hermes = shutil.which("hermes")
 
     async def run(self, run: AgentRun, agent: dict) -> None:
+        from . import store
+
+        store.set_agent_status(agent["id"], "working")
         if self.hermes:
             asyncio.create_task(self._run_hermes(run, agent))
         else:
@@ -83,6 +86,9 @@ class Runtime:
                     run.emit("message", {"text": line.decode().rstrip()})
             code = await proc.wait()
             run.emit("done" if code == 0 else "error", {"exit_code": code})
+            from . import store as _s
+
+            _s.set_agent_status(run.agent_id, "idle")
         except FileNotFoundError:
             await self._run_demo(run, agent)
 
@@ -99,3 +105,6 @@ class Runtime:
             "Install the Hermes Agent runtime and set a model key to go live."
         )})
         run.emit("done", {})
+        from . import store as _s
+
+        _s.set_agent_status(run.agent_id, "idle")

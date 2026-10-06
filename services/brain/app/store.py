@@ -108,6 +108,11 @@ def update_agent(agent_id: str, soul: str) -> dict | None:
         return dict(row) if row else None
 
 
+def set_agent_status(agent_id: str, status: str) -> None:
+    with connect() as conn:
+        conn.execute("UPDATE agents SET status=? WHERE id=?", (status, agent_id))
+
+
 def get_agent(agent_id: str) -> dict | None:
     with connect() as conn:
         row = conn.execute("SELECT * FROM agents WHERE id=?", (agent_id,)).fetchone()
