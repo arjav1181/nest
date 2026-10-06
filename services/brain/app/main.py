@@ -72,6 +72,51 @@ def get_activity(limit: int = 50):
     return ACTIVITY[-limit:]
 
 
+@app.get("/api/skills")
+def get_skills():
+    return store.list_skills()
+
+
+class SkillIn(BaseModel):
+    name: str
+    agent: str
+    steps: str
+
+
+@app.post("/api/skills")
+def create_skill(body: SkillIn):
+    return store.add_skill(body.name, body.agent, body.steps)
+
+
+@app.delete("/api/skills/{skill_id}")
+def remove_skill(skill_id: str):
+    store.delete_skill(skill_id)
+    return {"ok": True}
+
+
+@app.get("/api/rules")
+def get_rules():
+    return store.list_rules()
+
+
+class RuleIn(BaseModel):
+    action: str
+    mode: str  # allow | require_approval | block
+
+
+@app.post("/api/rules")
+def create_rule(body: RuleIn):
+    if body.mode not in ("allow", "require_approval", "block"):
+        raise HTTPException(400, "mode must be allow | require_approval | block")
+    return store.add_rule(body.action, body.mode)
+
+
+@app.delete("/api/rules/{rule_id}")
+def remove_rule(rule_id: str):
+    store.delete_rule(rule_id)
+    return {"ok": True}
+
+
 @app.get("/api/pause")
 def get_pause():
     return {"paused": store.get_setting("paused", "false") == "true"}
@@ -258,10 +303,16 @@ async def colony_chat(body: ColonyRequest):
             draft = next((t["text"] for t in reversed(thread) if t["agent"] in ("Writer", "Editor")), thread[-1]["text"])
             profile = store.get_setting("safety", "balanced")
             status = "approved" if profile == "bold" else "pending"
+            rule = store.find_rule("post_to_x")
+            risk = "low" if profile == "bold" else "high"
+            if rule:
+                status = {"allow": "approved", "require_approval": "pending", "block": "blocked"}[rule["mode"]]
+                if rule["mode"] == "allow":
+                    risk = "low"
             approval = store.add_approval(
                 "Publisher",
                 "post_to_x",
-                "low" if profile == "bold" else "high",
+                risk,
                 f"{draft[:240]}",
                 status,
             )

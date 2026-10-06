@@ -58,9 +58,47 @@ export default function Home() {
   const [colonyLog, setColonyLog] = useState<any[]>([]);
   const [colonyBusy, setColonyBusy] = useState(false);
   const [safety, setSafety] = useState("balanced");
-  const [tab, setTab] = useState<"overview" | "colony" | "inbox" | "templates" | "computer" | "activity">("overview");
+  const [tab, setTab] = useState<"overview" | "colony" | "inbox" | "templates" | "computer" | "activity" | "skills">("overview");
   const [activity, setActivity] = useState<any[]>([]);
   const [paused, setPaused] = useState(false);
+  const [skills, setSkills] = useState<any[]>([]);
+  const [rules, setRules] = useState<any[]>([]);
+  const [ruleAction, setRuleAction] = useState("post_to_x");
+  const [ruleMode, setRuleMode] = useState("require_approval");
+
+  useEffect(() => {
+    const load = () => {
+      fetch("/api/skills").then((r) => r.json()).then(setSkills).catch(() => {});
+      fetch("/api/rules").then((r) => r.json()).then(setRules).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const saveSkill = async () => {
+    const name = prompt("Skill name:");
+    if (!name) return;
+    const agentName = agents.find((a) => a.id === selected)?.name ?? "Agent";
+    const steps = feed.length
+      ? feed.filter((f) => f.type === "message").map((f) => f.data?.text).join("\n")
+      : "Saved workflow from the last successful run.";
+    await fetch("/api/skills", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, agent: agentName, steps: steps.slice(0, 1000) }),
+    });
+    fetch("/api/skills").then((r) => r.json()).then(setSkills);
+  };
+
+  const addRule = async () => {
+    await fetch("/api/rules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: ruleAction, mode: ruleMode }),
+    });
+    fetch("/api/rules").then((r) => r.json()).then(setRules);
+  };
 
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1500);
@@ -202,6 +240,7 @@ export default function Home() {
             ["templates", "Templates"],
             ["computer", "Computer"],
             ["activity", "Activity"],
+            ["skills", "Skills & Rules"],
           ] as const).map(([key, label]) => (
             <button
               key={key}
@@ -252,6 +291,7 @@ export default function Home() {
             {tab === "templates" && "Colony templates"}
             {tab === "computer" && "Agent computer"}
             {tab === "activity" && "Live activity"}
+            {tab === "skills" && "Skills & rules"}
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
             Your colony of agents, always on. {pending.length ? `${pending.length} decision(s) waiting on you.` : "Everything is on track."}
@@ -471,6 +511,84 @@ export default function Home() {
         )}
 
         {tab === "templates" && <ColonyTemplates refresh={refresh} />}
+
+        {tab === "skills" && (
+          <section className="grid gap-8 lg:grid-cols-2">
+            <div>
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-zinc-500">Saved skills</h2>
+              <p className="mb-3 text-xs text-zinc-600">
+                Reusable procedures the colony remembers. Save the last successful run as a skill.
+              </p>
+              <button onClick={saveSkill} className="mb-4 rounded-lg bg-emerald-500/90 px-4 py-1.5 text-sm font-semibold text-black">
+                Save last run as skill
+              </button>
+              <div className="space-y-2.5">
+                {skills.length === 0 && <p className="text-sm text-zinc-600">No skills yet.</p>}
+                {skills.map((s) => (
+                  <div key={s.id} className="rounded-2xl border border-zinc-800/70 bg-zinc-900/60 p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">{s.name}</span>
+                      <button
+                        onClick={async () => {
+                          await fetch(`/api/skills/${s.id}`, { method: "DELETE" });
+                          setSkills((l) => l.filter((x) => x.id !== s.id));
+                        }}
+                        className="text-xs text-zinc-600 hover:text-red-400"
+                      >
+                        delete
+                      </button>
+                    </div>
+                    <div className="text-xs text-zinc-500">by {s.agent}</div>
+                    <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-xs text-zinc-400">{s.steps}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-zinc-500">Custom rules</h2>
+              <p className="mb-3 text-xs text-zinc-600">
+                Per-action policy: allow outright, require your approval, or block entirely.
+              </p>
+              <div className="mb-4 flex gap-2">
+                <select value={ruleAction} onChange={(e) => setRuleAction(e.target.value)} className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm">
+                  <option value="post_to_x">post_to_x</option>
+                  <option value="pay_invoice">pay_invoice</option>
+                  <option value="send_email">send_email</option>
+                </select>
+                <select value={ruleMode} onChange={(e) => setRuleMode(e.target.value)} className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm">
+                  <option value="allow">allow</option>
+                  <option value="require_approval">require_approval</option>
+                  <option value="block">block</option>
+                </select>
+                <button onClick={addRule} className="rounded-lg bg-emerald-500/90 px-4 py-2 text-sm font-semibold text-black">
+                  Add rule
+                </button>
+              </div>
+              <div className="space-y-2">
+                {rules.length === 0 && <p className="text-sm text-zinc-600">No custom rules — the safety dial applies.</p>}
+                {rules.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between rounded-xl border border-zinc-800/70 bg-zinc-900/60 px-4 py-2.5 text-sm">
+                    <span>
+                      <span className="font-mono text-xs text-zinc-400">{r.action}</span>{" "}
+                      <span className={r.mode === "block" ? "text-red-400" : r.mode === "allow" ? "text-emerald-400" : "text-amber-400"}>
+                        → {r.mode}
+                      </span>
+                    </span>
+                    <button
+                      onClick={async () => {
+                        await fetch(`/api/rules/${r.id}`, { method: "DELETE" });
+                        setRules((l) => l.filter((x) => x.id !== r.id));
+                      }}
+                      className="text-xs text-zinc-600 hover:text-red-400"
+                    >
+                      delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {tab === "activity" && (
           <section className="space-y-2 font-mono text-xs">

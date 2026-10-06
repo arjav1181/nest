@@ -37,6 +37,16 @@ def init_db() -> None:
             )"""
         )
         conn.execute(
+            """CREATE TABLE IF NOT EXISTS skills (
+                id TEXT PRIMARY KEY, name TEXT, agent TEXT, steps TEXT, created_at TEXT
+            )"""
+        )
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS rules (
+                id TEXT PRIMARY KEY, action TEXT, mode TEXT
+            )"""
+        )
+        conn.execute(
             """CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY, value TEXT
             )"""
@@ -94,6 +104,48 @@ def set_agents(agents: list[dict]) -> None:
                 "INSERT INTO agents (id, name, role, soul) VALUES (?,?,?,?)",
                 (uuid.uuid4().hex[:8], a["name"], a.get("role", "agent"), a.get("soul", "")),
             )
+
+
+def list_skills() -> list[dict]:
+    with connect() as conn:
+        return [dict(r) for r in conn.execute("SELECT * FROM skills ORDER BY rowid DESC")]
+
+
+def add_skill(name: str, agent: str, steps: str) -> dict:
+    from datetime import datetime, timezone
+
+    row = (uuid.uuid4().hex[:8], name, agent, steps, datetime.now(timezone.utc).isoformat())
+    with connect() as conn:
+        conn.execute("INSERT INTO skills (id, name, agent, steps, created_at) VALUES (?,?,?,?,?)", row)
+        return {"id": row[0], "name": name, "agent": agent, "steps": steps, "created_at": row[4]}
+
+
+def delete_skill(skill_id: str) -> None:
+    with connect() as conn:
+        conn.execute("DELETE FROM skills WHERE id=?", (skill_id,))
+
+
+def list_rules() -> list[dict]:
+    with connect() as conn:
+        return [dict(r) for r in conn.execute("SELECT * FROM rules")]
+
+
+def add_rule(action: str, mode: str) -> dict:
+    row = (uuid.uuid4().hex[:8], action, mode)
+    with connect() as conn:
+        conn.execute("INSERT INTO rules (id, action, mode) VALUES (?,?,?)", row)
+        return {"id": row[0], "action": action, "mode": mode}
+
+
+def delete_rule(rule_id: str) -> None:
+    with connect() as conn:
+        conn.execute("DELETE FROM rules WHERE id=?", (rule_id,))
+
+
+def find_rule(action: str) -> dict | None:
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM rules WHERE action=?", (action,)).fetchone()
+        return dict(row) if row else None
 
 
 def list_agents() -> list[dict]:
