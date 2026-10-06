@@ -155,6 +155,17 @@ def decide(approval_id: str, body: Decision):
     row = store.decide_approval(approval_id, body.decision)
     if not row:
         raise HTTPException(404)
+    from .runtime import ACTIVITY, now
+
+    ACTIVITY.append(
+        {
+            "agent": row["agent"],
+            "id": uuid.uuid4().hex[:8],
+            "type": "message",
+            "data": {"text": f"Owner {body.decision}: {row['action']} — {row['detail'][:80]}"},
+            "ts": now(),
+        }
+    )
     return row
 
 
