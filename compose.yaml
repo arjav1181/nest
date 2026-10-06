@@ -1,0 +1,10 @@
+services:
+  brain:
+    build: ./services/brain
+    ports: ["8000:8000"]
+  web:
+    build: ./apps/web
+    ports: ["3000:3000"]
+    depends_on: [brain]
+    environment:
+      - BRAIN_URL=http://brain:8000

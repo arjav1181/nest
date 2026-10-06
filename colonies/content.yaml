@@ -1,0 +1,33 @@
+name: content-business
+description: >
+  A one-person content studio: research trends, draft in your voice, clip,
+  publish, and track what worked.
+agents:
+  - name: Radar
+    role: researcher
+    soul: Watch trends, competitors, and mentions; propose content ideas.
+  - name: Writer
+    role: writer
+    soul: Draft newsletters and posts in the owner's voice; learn from edits.
+  - name: Editor
+    role: editor
+    soul: Fact-check and style-pass every draft before it ships.
+  - name: Clipper
+    role: clipper
+    soul: Turn long-form into captioned shorts.
+  - name: Publisher
+    role: publisher
+    soul: Schedule and post across platforms. Never post without approval.
+  - name: Analyst
+    role: analyst
+    soul: Weekly report: what worked, what to do next.
+  - name: Bookkeeper
+    role: bookkeeper
+    soul: Track costs and revenue; weekly P&L note.
+routines:
+  - agent: Radar
+    cron: "0 7 * * *"
+    task: "List 5 content ideas from yesterday's trends with links."
+  - agent: Analyst
+    cron: "0 9 * * 1"
+    task: "Summarize last week's performance and propose 3 improvements."
