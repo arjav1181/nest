@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from . import store
 from .runtime import AgentRun, Runtime
+from .scheduler import briefing, scheduler
 
 RUNS: dict[str, AgentRun] = {}
 runtime = Runtime()
@@ -19,7 +20,11 @@ runtime = Runtime()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     store.init_db()
+    import asyncio as _a
+
+    task = _a.create_task(scheduler(runtime))
     yield
+    task.cancel()
 
 
 app = FastAPI(title="Nest Brain", lifespan=lifespan)
@@ -41,6 +46,11 @@ def agents():
 @app.get("/api/approvals")
 def approvals():
     return store.list_approvals()
+
+
+@app.get("/api/briefing")
+def get_briefing():
+    return briefing()
 
 
 class Decision(BaseModel):

@@ -15,9 +15,21 @@ export default function Home() {
   const [runtime, setRuntime] = useState("demo");
   const [navUrl, setNavUrl] = useState("");
   const [tick, setTick] = useState(0);
+  const [briefing, setBriefing] = useState<any[]>([]);
 
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1500);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/briefing")
+        .then((r) => r.json())
+        .then(setBriefing)
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 5000);
     return () => clearInterval(t);
   }, []);
 
@@ -69,6 +81,26 @@ export default function Home() {
         <h1 className="text-4xl font-bold tracking-tight">Nest</h1>
         <span className="text-sm text-zinc-500">runtime: {runtime}</span>
       </header>
+
+      <section className="mb-8">
+        <h2 className="mb-3 text-xl font-semibold">Morning briefing</h2>
+        <div className="space-y-2">
+          {briefing.length === 0 && (
+            <p className="text-sm text-zinc-600">
+              Routines fire on a schedule — the colony's overnight work will land here.
+            </p>
+          )}
+          {briefing.map((b, i) => (
+            <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+              <div className="text-sm">
+                <span className="font-semibold text-emerald-400">{b.agent}</span>{" "}
+                <span className="text-zinc-500">· {b.task}</span>
+              </div>
+              <p className="mt-1 text-sm text-zinc-300">{b.summary}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
         {agents.map((a) => (
