@@ -12,6 +12,8 @@ that work 24/7. Every risky action goes through a smart approvals inbox.
 The agent loop is pluggable: **Hermes Agent** when installed, a demo loop
 otherwise, so the UI works with zero setup.
 
+![Nest](docs/screenshot.png)
+
 ## Quick start
 
 ```bash
