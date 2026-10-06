@@ -101,6 +101,13 @@ def list_agents() -> list[dict]:
         return [dict(r) for r in conn.execute("SELECT * FROM agents ORDER BY name")]
 
 
+def update_agent(agent_id: str, soul: str) -> dict | None:
+    with connect() as conn:
+        conn.execute("UPDATE agents SET soul=? WHERE id=?", (soul, agent_id))
+        row = conn.execute("SELECT * FROM agents WHERE id=?", (agent_id,)).fetchone()
+        return dict(row) if row else None
+
+
 def get_agent(agent_id: str) -> dict | None:
     with connect() as conn:
         row = conn.execute("SELECT * FROM agents WHERE id=?", (agent_id,)).fetchone()

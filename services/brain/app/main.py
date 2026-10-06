@@ -48,6 +48,18 @@ def approvals():
     return store.list_approvals()
 
 
+class SoulUpdate(BaseModel):
+    soul: str
+
+
+@app.patch("/api/agents/{agent_id}")
+def update_agent(agent_id: str, body: SoulUpdate):
+    row = store.update_agent(agent_id, body.soul)
+    if not row:
+        raise HTTPException(404)
+    return row
+
+
 @app.get("/api/briefing")
 def get_briefing():
     return briefing()
@@ -206,14 +218,14 @@ async def colony_chat(body: ColonyRequest):
                 thread.append({"agent": name, "text": last[-1]["data"]["text"]})
         # finishing the pipeline stages a publish for approval — unless the owner runs bold
         if thread:
-            last_text = thread[-1]["text"]
+            draft = next((t["text"] for t in reversed(thread) if t["agent"] in ("Writer", "Editor")), thread[-1]["text"])
             profile = store.get_setting("safety", "balanced")
             status = "approved" if profile == "bold" else "pending"
             approval = store.add_approval(
                 "Publisher",
                 "post_to_x",
                 "low" if profile == "bold" else "high",
-                f"Colony ready to publish: {last_text[:120]}…",
+                f"{draft[:240]}",
                 status,
             )
             yield f"data: {json.dumps({'type': 'approval', 'approval': approval})}\n\n"
