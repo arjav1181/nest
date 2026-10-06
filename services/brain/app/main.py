@@ -53,6 +53,45 @@ def get_briefing():
     return briefing()
 
 
+@app.get("/api/colonies")
+def list_colonies():
+    from pathlib import Path
+
+    colonies = Path(__file__).parent.parent.parent.parent / "colonies"
+    out = []
+    for f in sorted(colonies.glob("*.yaml")):
+        import yaml
+
+        data = yaml.safe_load(f.read_text())
+        out.append(
+            {
+                "name": data.get("name", f.stem),
+                "description": data.get("description", ""),
+                "agents": [a["name"] for a in data.get("agents", [])],
+            }
+        )
+    return out
+
+
+@app.post("/api/colonies/{name}/load")
+def load_colony(name: str):
+    from pathlib import Path
+
+    import yaml
+
+    colonies = Path(__file__).parent.parent.parent.parent / "colonies"
+    match = None
+    for f in colonies.glob("*.yaml"):
+        data = yaml.safe_load(f.read_text())
+        if data.get("name") == name:
+            match = data
+            break
+    if not match:
+        raise HTTPException(404, "colony template not found")
+    store.set_agents(match.get("agents", []))
+    return {"loaded": name, "agents": len(match.get("agents", []))}
+
+
 class SafetyProfile(BaseModel):
     profile: str  # cautious | balanced | bold
 

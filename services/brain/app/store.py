@@ -86,6 +86,16 @@ def add_approval(agent: str, action: str, risk: str, detail: str, status: str = 
         return dict(row)
 
 
+def set_agents(agents: list[dict]) -> None:
+    with connect() as conn:
+        conn.execute("DELETE FROM agents")
+        for a in agents:
+            conn.execute(
+                "INSERT INTO agents (id, name, role, soul) VALUES (?,?,?,?)",
+                (uuid.uuid4().hex[:8], a["name"], a.get("role", "agent"), a.get("soul", "")),
+            )
+
+
 def list_agents() -> list[dict]:
     with connect() as conn:
         return [dict(r) for r in conn.execute("SELECT * FROM agents ORDER BY name")]

@@ -6,6 +6,41 @@ type Agent = { id: string; name: string; role: string; soul: string; status: str
 type Approval = { id: string; agent: string; action: string; risk: string; detail: string; status: string };
 type FeedItem = { id?: string; type: string; data: any; ts?: string };
 
+function ColonyTemplates({ refresh }: { refresh: () => void }) {
+  const [list, setList] = useState<any[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/colonies")
+      .then((r) => r.json())
+      .then(setList)
+      .catch(() => {});
+  }, []);
+  const load = async (name: string) => {
+    setBusy(name);
+    await fetch(`/api/colonies/${encodeURIComponent(name)}/load`, { method: "POST" });
+    setBusy(null);
+    refresh();
+  };
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {list.map((c) => (
+        <div key={c.name} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+          <div className="font-semibold">{c.name}</div>
+          <p className="mt-1 text-sm text-zinc-400">{c.description}</p>
+          <div className="mt-2 text-xs text-zinc-500">{c.agents.join(", ")}</div>
+          <button
+            onClick={() => load(c.name)}
+            disabled={busy === c.name}
+            className="mt-3 rounded-lg bg-emerald-600 px-3 py-1 text-sm disabled:opacity-50"
+          >
+            {busy === c.name ? "Loading…" : "Load colony"}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
@@ -260,6 +295,14 @@ export default function Home() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-3 text-xl font-semibold">Colony templates</h2>
+        <p className="mb-3 text-sm text-zinc-500">
+          Swap your colony's whole team. Templates ship ready-made: a content studio, a dev shop.
+        </p>
+        <ColonyTemplates refresh={refresh} />
       </section>
 
       <section className="grid gap-8 md:grid-cols-2">

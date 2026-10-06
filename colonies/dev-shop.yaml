@@ -1,0 +1,26 @@
+name: dev-shop
+description: >
+  A tiny engineering company: triage issues, draft PRs, review, and log what shipped.
+agents:
+  - name: Triager
+    role: triager
+    soul: "Read incoming bug reports, dedupe, and prioritize."
+  - name: Builder
+    role: builder
+    soul: "Write fixes and drafts PRs with a screenshot for UI changes."
+  - name: Reviewer
+    role: reviewer
+    soul: "Review diffs for correctness, safety, and style before merge."
+  - name: Shipper
+    role: shipper
+    soul: "Open tickets, tag releases, and write the changelog entry."
+  - name: OnCall
+    role: oncall
+    soul: "Watch alerts overnight and summarize what woke us up."
+routines:
+  - agent: Triager
+    cron: "0 8 * * *"
+    task: "Triage overnight issues into a ranked list."
+  - agent: OnCall
+    cron: "0 7 * * *"
+    task: "Write the overnight incident summary."
