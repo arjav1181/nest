@@ -65,6 +65,22 @@ def get_briefing():
     return briefing()
 
 
+@app.get("/api/memory")
+def get_memory():
+    agents = store.list_agents()
+    last_by_agent: dict[str, dict] = {}
+    for entry in briefing():
+        last_by_agent[entry["agent"]] = entry
+    return [
+        {
+            "agent": a["name"],
+            "soul": a["soul"],
+            "remembers": (last_by_agent.get(a["name"]) or {}).get("summary", "No routine history yet."),
+        }
+        for a in agents
+    ]
+
+
 @app.get("/api/activity")
 def get_activity(limit: int = 50):
     from .runtime import ACTIVITY

@@ -63,6 +63,7 @@ export default function Home() {
   const [paused, setPaused] = useState(false);
   const [skills, setSkills] = useState<any[]>([]);
   const [rules, setRules] = useState<any[]>([]);
+  const [memory, setMemory] = useState<any[]>([]);
   const [ruleAction, setRuleAction] = useState("post_to_x");
   const [ruleMode, setRuleMode] = useState("require_approval");
 
@@ -99,6 +100,14 @@ export default function Home() {
     });
     fetch("/api/rules").then((r) => r.json()).then(setRules);
   };
+
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/memory").then((r) => r.json()).then(setMemory).catch(() => {});
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1500);
@@ -409,6 +418,21 @@ export default function Home() {
                   {pending.length} pending — open the Inbox tab to review and approve what the colony wants to
                   publish, pay, or send.
                 </p>
+              </div>
+            </section>
+
+            <section className="mt-8">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-zinc-500">Colony memory</h2>
+              <div className="space-y-2">
+                {memory.map((m, i) => (
+                  <div key={i} className="rounded-2xl border border-zinc-800/70 bg-zinc-900/60 p-4">
+                    <div className="text-sm">
+                      <span className="font-semibold text-emerald-400">{m.agent}</span>{" "}
+                      <span className="text-zinc-500 text-xs">· {m.soul}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-zinc-400">{m.remembers}</p>
+                  </div>
+                ))}
               </div>
             </section>
           </>
