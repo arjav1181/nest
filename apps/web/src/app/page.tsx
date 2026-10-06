@@ -13,6 +13,13 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [runtime, setRuntime] = useState("demo");
+  const [navUrl, setNavUrl] = useState("");
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 1500);
+    return () => clearInterval(t);
+  }, []);
 
   const refresh = async () => {
     const [a, ap, h] = await Promise.all([
@@ -76,6 +83,33 @@ export default function Home() {
             <div className="text-xs text-zinc-500">{a.role} · {a.status}</div>
           </button>
         ))}
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-3 text-xl font-semibold">Computer</h2>
+        <div className="mb-3 flex gap-2">
+          <input
+            value={navUrl}
+            onChange={(e) => setNavUrl(e.target.value)}
+            onKeyDown={async (e) => {
+              if (e.key === "Enter" && navUrl.trim()) {
+                await fetch("/sandbox/api/navigate", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ url: navUrl }),
+                });
+                setNavUrl("");
+              }
+            }}
+            placeholder="Navigate the agent's browser... (e.g. news.ycombinator.com)"
+            className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-emerald-700"
+          />
+        </div>
+        <img
+          src={`/sandbox/api/screen?t=${tick}`}
+          alt="Agent computer"
+          className="w-full rounded-xl border border-zinc-800"
+        />
       </section>
 
       <section className="grid gap-8 md:grid-cols-2">
