@@ -16,6 +16,9 @@ export default function Home() {
   const [navUrl, setNavUrl] = useState("");
   const [tick, setTick] = useState(0);
   const [briefing, setBriefing] = useState<any[]>([]);
+  const [colonyInput, setColonyInput] = useState("");
+  const [colonyLog, setColonyLog] = useState<any[]>([]);
+  const [colonyBusy, setColonyBusy] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1500);
@@ -56,6 +59,37 @@ export default function Home() {
       body: JSON.stringify({ decision }),
     });
     refresh();
+  };
+
+  const sendColony = async () => {
+    if (!colonyInput.trim() || colonyBusy) return;
+    setColonyBusy(true);
+    setColonyLog([{ type: "user", text: colonyInput }]);
+    const msg = colonyInput;
+    setColonyInput("");
+    const res = await fetch("/api/colony/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: msg }),
+    });
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split("\n\n");
+      buf = parts.pop() ?? "";
+      for (const part of parts) {
+        const line = part.replace(/^data: /, "");
+        try {
+          const evt = JSON.parse(line);
+          setColonyLog((l) => [...l, evt]);
+        } catch {}
+      }
+    }
+    setColonyBusy(false);
   };
 
   const send = async () => {
@@ -142,6 +176,51 @@ export default function Home() {
           alt="Agent computer"
           className="w-full rounded-xl border border-zinc-800"
         />
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-3 text-xl font-semibold">Colony chat</h2>
+        <p className="mb-3 text-sm text-zinc-500">
+          Talk to the whole colony. Radar triages, Writer drafts, Editor reviews, Publisher
+          packages — and only you approve what ships.
+        </p>
+        <div className="mb-3 flex gap-2">
+          <input
+            value={colonyInput}
+            onChange={(e) => setColonyInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendColony()}
+            placeholder="Ask the colony to plan something... e.g. 'write about AI agents for solopreneurs'"
+            className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-emerald-700"
+          />
+          <button
+            onClick={sendColony}
+            disabled={colonyBusy}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            {colonyBusy ? "Working..." : "Convene"}
+          </button>
+        </div>
+        <div className="space-y-2">
+          {colonyLog.map((m, i) => (
+            <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 text-sm">
+              {m.type === "user" && <span className="text-emerald-400">You: {m.text}</span>}
+              {m.type === "agent_start" && (
+                <span className="text-xs uppercase tracking-wide text-zinc-500">{m.agent} is working…</span>
+              )}
+              {m.type === "agent_message" && (
+                <>
+                  <span className="font-semibold text-emerald-400">{m.agent}</span>{" "}
+                  <span className="text-zinc-300">{m.text}</span>
+                </>
+              )}
+              {m.type === "event" && (
+                <span className="font-mono text-xs text-zinc-500">
+                  {m.agent} · {m.event.type} {JSON.stringify(m.event.data).slice(0, 80)}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-8 md:grid-cols-2">

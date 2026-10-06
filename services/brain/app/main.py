@@ -94,3 +94,60 @@ async def run_events(run_id: str):
             yield f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+COLONY_PIPELINE = ["Radar", "Writer", "Editor", "Publisher"]
+
+ROLE_BRIEFS = {
+    "Radar": "scouts trends/competitors and frames the opportunity",
+    "Writer": "drafts the actual deliverable in the owner's voice",
+    "Editor": "flags risks, fact-checks, and tightens the draft",
+    "Publisher": "packages it for scheduling and requests human approval",
+    "Analyst": "predicts what the data will say and success metrics",
+    "Bookkeeper": "estimates cost/effort and payback",
+    "Clipper": "turns the draft into short-form clips",
+}
+
+
+class ColonyRequest(BaseModel):
+    message: str
+
+
+@app.post("/api/colony/chat")
+async def colony_chat(body: ColonyRequest):
+    async def gen():
+        import asyncio
+
+        agents = {a["name"]: a for a in store.list_agents()}
+        thread: list[dict] = []
+        for name in COLONY_PIPELINE:
+            agent = agents.get(name)
+            if not agent:
+                continue
+            run = AgentRun(
+                id=uuid.uuid4().hex[:8],
+                agent_id=agent["id"],
+                message=f"[Colony thread] Owner said: {body.message}\n"
+                + "\n".join(f"{t['agent']}: {t['text']}" for t in thread),
+            )
+            await runtime.run(run, agent)
+            yield f"data: {json.dumps({'type': 'agent_start', 'agent': name})}\n\n"
+            while True:
+                done = any(e["type"] in ("done", "error") for e in run.events)
+                for e in run.events:
+                    if e.get("_sent"):
+                        continue
+                    e["_sent"] = True
+                    if e["type"] == "message":
+                        yield f"data: {json.dumps({'type': 'agent_message', 'agent': name, 'text': e['data']['text']})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'type': 'event', 'agent': name, 'event': e})}\n\n"
+                if done:
+                    break
+                await asyncio.sleep(0.3)
+            last = [e for e in run.events if e["type"] == "message"]
+            if last:
+                thread.append({"agent": name, "text": last[-1]["data"]["text"]})
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
