@@ -1,5 +1,7 @@
 # Nest
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) ![Status](https://img.shields.io/badge/status-beta-emerald)
+
 > A colony of always-on AI agents that run your one-person content business. The open-source answer to Grok Bot, OpenAI Dots, and Meta Muse.
 
 Free forever. MIT. Local-first. Your keys, your data, your agents.
