@@ -53,6 +53,23 @@ def get_briefing():
     return briefing()
 
 
+class SafetyProfile(BaseModel):
+    profile: str  # cautious | balanced | bold
+
+
+@app.get("/api/safety")
+def get_safety():
+    return {"profile": store.get_setting("safety", "balanced")}
+
+
+@app.post("/api/safety")
+def set_safety(body: SafetyProfile):
+    if body.profile not in ("cautious", "balanced", "bold"):
+        raise HTTPException(400, "profile must be cautious | balanced | bold")
+    store.set_setting("safety", body.profile)
+    return {"profile": body.profile}
+
+
 class Decision(BaseModel):
     decision: str  # approved | denied
 
@@ -148,6 +165,19 @@ async def colony_chat(body: ColonyRequest):
             last = [e for e in run.events if e["type"] == "message"]
             if last:
                 thread.append({"agent": name, "text": last[-1]["data"]["text"]})
+        # finishing the pipeline stages a publish for approval — unless the owner runs bold
+        if thread:
+            last_text = thread[-1]["text"]
+            profile = store.get_setting("safety", "balanced")
+            status = "approved" if profile == "bold" else "pending"
+            approval = store.add_approval(
+                "Publisher",
+                "post_to_x",
+                "low" if profile == "bold" else "high",
+                f"Colony ready to publish: {last_text[:120]}…",
+                status,
+            )
+            yield f"data: {json.dumps({'type': 'approval', 'approval': approval})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream")

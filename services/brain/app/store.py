@@ -36,6 +36,14 @@ def init_db() -> None:
                 id TEXT PRIMARY KEY, agent TEXT, action TEXT, risk TEXT, detail TEXT, status TEXT DEFAULT 'pending'
             )"""
         )
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY, value TEXT
+            )"""
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES ('safety', 'balanced')"
+        )
         count = conn.execute("SELECT COUNT(*) c FROM agents").fetchone()["c"]
         if count == 0:
             for name, soul, role in SEED_AGENTS:
@@ -51,6 +59,31 @@ def init_db() -> None:
                 "INSERT INTO approvals (id, agent, action, risk, detail) VALUES (?,?,?,?,?)",
                 (uuid.uuid4().hex[:8], "Bookkeeper", "pay_invoice", "medium", "Pay $29/mo OpenRouter invoice (auto-renewal)"),
             )
+
+
+def get_setting(key: str, default: str = "") -> str:
+    with connect() as conn:
+        row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return row["value"] if row else default
+
+
+def set_setting(key: str, value: str) -> None:
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (key, value),
+        )
+
+
+def add_approval(agent: str, action: str, risk: str, detail: str, status: str = "pending") -> dict:
+    appr = (uuid.uuid4().hex[:8], agent, action, risk, detail, status)
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO approvals (id, agent, action, risk, detail, status) VALUES (?,?,?,?,?,?)",
+            appr,
+        )
+        row = conn.execute("SELECT * FROM approvals WHERE id=?", (appr[0],)).fetchone()
+        return dict(row)
 
 
 def list_agents() -> list[dict]:

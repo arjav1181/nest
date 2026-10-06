@@ -19,6 +19,24 @@ export default function Home() {
   const [colonyInput, setColonyInput] = useState("");
   const [colonyLog, setColonyLog] = useState<any[]>([]);
   const [colonyBusy, setColonyBusy] = useState(false);
+  const [safety, setSafety] = useState("balanced");
+
+  useEffect(() => {
+    fetch("/api/safety")
+      .then((r) => r.json())
+      .then((d) => setSafety(d.profile))
+      .catch(() => {});
+  }, []);
+
+  const setSafetyProfile = async (profile: string) => {
+    setSafety(profile);
+    await fetch("/api/safety", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile }),
+    });
+    refresh();
+  };
 
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1500);
@@ -114,6 +132,22 @@ export default function Home() {
       <header className="mb-8 flex items-baseline justify-between">
         <h1 className="text-4xl font-bold tracking-tight">Nest</h1>
         <span className="text-sm text-zinc-500">runtime: {runtime}</span>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-500">safety dial</span>
+          {["cautious", "balanced", "bold"].map((p) => (
+            <button
+              key={p}
+              onClick={() => setSafetyProfile(p)}
+              className={`rounded-full border px-3 py-1 ${
+                safety === p
+                  ? "border-emerald-500 bg-emerald-950 text-emerald-300"
+                  : "border-zinc-800 text-zinc-500"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </header>
 
       <section className="mb-8">
@@ -212,6 +246,11 @@ export default function Home() {
                   <span className="font-semibold text-emerald-400">{m.agent}</span>{" "}
                   <span className="text-zinc-300">{m.text}</span>
                 </>
+              )}
+              {m.type === "approval" && (
+                <span className="text-amber-300">
+                  Publisher → approval staged: {m.approval.action} ({m.approval.risk}, {m.approval.status})
+                </span>
               )}
               {m.type === "event" && (
                 <span className="font-mono text-xs text-zinc-500">
