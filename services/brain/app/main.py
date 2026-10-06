@@ -65,6 +65,28 @@ def get_briefing():
     return briefing()
 
 
+@app.get("/api/activity")
+def get_activity(limit: int = 50):
+    from .runtime import ACTIVITY
+
+    return ACTIVITY[-limit:]
+
+
+@app.get("/api/pause")
+def get_pause():
+    return {"paused": store.get_setting("paused", "false") == "true"}
+
+
+class PauseReq(BaseModel):
+    paused: bool
+
+
+@app.post("/api/pause")
+def set_pause(body: PauseReq):
+    store.set_setting("paused", "true" if body.paused else "false")
+    return {"paused": body.paused}
+
+
 @app.get("/api/colonies")
 def list_colonies():
     from pathlib import Path
@@ -101,6 +123,7 @@ def load_colony(name: str):
     if not match:
         raise HTTPException(404, "colony template not found")
     store.set_agents(match.get("agents", []))
+    store.set_setting("colony", match.get("name", name))
     return {"loaded": name, "agents": len(match.get("agents", []))}
 
 
@@ -145,7 +168,9 @@ async def chat(body: ChatRequest):
     agent = store.get_agent(body.agent_id)
     if not agent:
         raise HTTPException(404, "agent not found")
-    run = AgentRun(id=uuid.uuid4().hex[:8], agent_id=agent["id"], message=body.message)
+    if store.get_setting("paused", "false") == "true":
+        raise HTTPException(409, "colony is paused — resume via the kill switch")
+    run = AgentRun(id=uuid.uuid4().hex[:8], agent_id=agent["id"], message=body.message, agent_name=agent["name"])
     RUNS[run.id] = run
     await runtime.run(run, agent)
     return {"run_id": run.id}
@@ -197,6 +222,7 @@ async def colony_chat(body: ColonyRequest):
                 agent_id=agent["id"],
                 message=f"[Colony thread] Owner said: {body.message}\n"
                 + "\n".join(f"{t['agent']}: {t['text']}" for t in thread),
+                agent_name=agent["name"],
             )
             await runtime.run(run, agent)
             yield f"data: {json.dumps({'type': 'agent_start', 'agent': name})}\n\n"

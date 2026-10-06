@@ -58,7 +58,9 @@ export default function Home() {
   const [colonyLog, setColonyLog] = useState<any[]>([]);
   const [colonyBusy, setColonyBusy] = useState(false);
   const [safety, setSafety] = useState("balanced");
-  const [tab, setTab] = useState<"overview" | "colony" | "inbox" | "templates" | "computer">("overview");
+  const [tab, setTab] = useState<"overview" | "colony" | "inbox" | "templates" | "computer" | "activity">("overview");
+  const [activity, setActivity] = useState<any[]>([]);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1500);
@@ -76,6 +78,28 @@ export default function Home() {
   useEffect(() => {
     fetch("/api/safety").then((r) => r.json()).then((d) => setSafety(d.profile)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetch("/api/pause").then((r) => r.json()).then((d) => setPaused(d.paused)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/activity").then((r) => r.json()).then(setActivity).catch(() => {});
+    load();
+    const t = setInterval(load, 3000);
+    return () => clearInterval(t);
+  }, []);
+
+  const togglePause = async () => {
+    const next = !paused;
+    setPaused(next);
+    await fetch("/api/pause", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paused: next }),
+    });
+  };
 
   const refresh = async () => {
     const [a, ap, h] = await Promise.all([
@@ -177,6 +201,7 @@ export default function Home() {
             ["inbox", `Inbox${pending.length ? ` · ${pending.length}` : ""}`],
             ["templates", "Templates"],
             ["computer", "Computer"],
+            ["activity", "Activity"],
           ] as const).map(([key, label]) => (
             <button
               key={key}
@@ -207,6 +232,14 @@ export default function Home() {
           <div className="mt-4 text-[11px] text-zinc-600">
             runtime <span className="text-emerald-500">{runtime}</span>
           </div>
+          <button
+            onClick={togglePause}
+            className={`mt-3 w-full rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+              paused ? "border-red-500/70 bg-red-950/50 text-red-300" : "border-zinc-800 text-zinc-400 hover:border-red-900 hover:text-red-400"
+            }`}
+          >
+            {paused ? "■ Colony paused — resume" : "■ Kill switch — pause colony"}
+          </button>
         </div>
       </aside>
 
@@ -218,6 +251,7 @@ export default function Home() {
             {tab === "inbox" && "Approvals inbox"}
             {tab === "templates" && "Colony templates"}
             {tab === "computer" && "Agent computer"}
+            {tab === "activity" && "Live activity"}
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
             Your colony of agents, always on. {pending.length ? `${pending.length} decision(s) waiting on you.` : "Everything is on track."}
@@ -437,6 +471,23 @@ export default function Home() {
         )}
 
         {tab === "templates" && <ColonyTemplates refresh={refresh} />}
+
+        {tab === "activity" && (
+          <section className="space-y-2 font-mono text-xs">
+            {activity.length === 0 && (
+              <p className="rounded-2xl border border-dashed border-zinc-800 p-10 text-center text-sm text-zinc-600">
+                Nothing yet — the colony will log every thought, tool call, and message here.
+              </p>
+            )}
+            {[...activity].reverse().map((e, i) => (
+              <div key={e.id ?? i} className="rounded-xl border border-zinc-900 bg-zinc-900/50 p-2.5">
+                <span className="text-emerald-500">{e.agent}</span>{" "}
+                <span className="text-zinc-500">· {e.type} ·</span>{" "}
+                <span className="text-zinc-400">{JSON.stringify(e.data).slice(0, 140)}</span>
+              </div>
+            ))}
+          </section>
+        )}
 
         {tab === "computer" && (
           <section>

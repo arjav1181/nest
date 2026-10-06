@@ -11,6 +11,9 @@ from typing import AsyncIterator, Literal
 
 EventType = Literal["thought", "tool_call", "tool_result", "message", "error", "done"]
 
+ACTIVITY: list[dict] = []
+ACTIVITY_MAX = 100
+
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -21,12 +24,16 @@ class AgentRun:
     id: str
     agent_id: str
     message: str
+    agent_name: str = ""
     events: list[dict] = field(default_factory=list)
     subscribers: list[asyncio.Queue] = field(default_factory=list)
 
     def emit(self, type: EventType, data: dict) -> dict:
         event = {"id": uuid.uuid4().hex[:8], "type": type, "data": data, "ts": now()}
         self.events.append(event)
+        ACTIVITY.append({"agent": self.agent_name or self.agent_id, **event})
+        if len(ACTIVITY) > ACTIVITY_MAX:
+            del ACTIVITY[:-ACTIVITY_MAX]
         for q in self.subscribers:
             q.put_nowait(event)
         return event
